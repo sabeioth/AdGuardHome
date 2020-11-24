@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	uuid "github.com/satori/go.uuid"
 	"howett.net/plist"
@@ -97,11 +98,32 @@ func handleMobileConfigDoh(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// hostFromHostport is a best-effort host handler for returning only hostname.
+func hostFromHostport(hostport string) (h string, err error) {
+	hostport = strings.TrimSpace(hostport)
+	switch strings.Count(hostport, ":") {
+	case 0:
+		return hostport, nil
+	case 1:
+		h, _, err = net.SplitHostPort(hostport)
+		return h, err
+	default:
+		if hostport[0] == '[' {
+			h, _, err := net.SplitHostPort(hostport)
+			return h, err
+		}
+
+		return hostport, nil
+	}
+}
+
 func handleMobileConfigDot(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	var host string
-	host, _, err = net.SplitHostPort(r.Host)
+	// TODO(e.burkov): This should be replaced with correct hostname picker
+	// in the future.
+	host, err = hostFromHostport(r.Host)
 	if err != nil {
 		httpError(w, http.StatusBadRequest, "getting host: %s", err)
 	}

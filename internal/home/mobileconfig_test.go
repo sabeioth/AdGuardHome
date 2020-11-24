@@ -1,6 +1,7 @@
 package home
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,83 @@ import (
 	"github.com/stretchr/testify/assert"
 	"howett.net/plist"
 )
+
+func TestHostFromHostport(t *testing.T) {
+	testCases := []struct {
+		name string
+		host string
+		want string
+		err  error
+	}{{
+		name: "basic_hostname",
+		host: "example.com",
+		want: "example.com",
+		err:  nil,
+	}, {
+		name: "basic_hostname_port",
+		host: "example.com:80",
+		want: "example.com",
+		err:  nil,
+	}, {
+		name: "basic_ipv4",
+		host: "1.2.3.4",
+		want: "1.2.3.4",
+		err:  nil,
+	}, {
+		name: "basic_ipv4_port",
+		host: "1.2.3.4:80",
+		want: "1.2.3.4",
+		err:  nil,
+	}, {
+		name: "basic_ipv6",
+		host: "2001:db8::68",
+		want: "2001:db8::68",
+		err:  nil,
+	}, {
+		name: "closed_ipv6",
+		host: "[2001:db8::68]",
+		want: "",
+		err:  &net.AddrError{Err: "missing port in address", Addr: "[2001:db8::68]"},
+	}, {
+		name: "good_ipv6_port",
+		host: "[1:2:3::4]:80",
+		want: "1:2:3::4",
+		err:  nil,
+	}, {
+		name: "bad_ipv6_port",
+		host: "[1:2:3::4] :80",
+		want: "",
+		err:  &net.AddrError{Err: "missing port in address", Addr: "[1:2:3::4] :80"},
+	}, {
+		name: "spaced_ipv6_port",
+		host: "[ 1:2:3::4]:80",
+		want: " 1:2:3::4",
+		err:  nil,
+	}, {
+		name: "prespaced_ipv6_port",
+		host: " [1:2:3::4]:80",
+		want: "1:2:3::4",
+		err:  nil,
+	}, {
+		name: "bad_ipv4",
+		host: "123.123.123.123::80",
+		want: "123.123.123.123::80",
+		err:  nil,
+	}, {
+		name: "bad_brackets",
+		host: "[1:2:3::4]]:80",
+		want: "",
+		err:  &net.AddrError{Err: "missing port in address", Addr: "[1:2:3::4]]:80"},
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, err := hostFromHostport(tc.host)
+			assert.Equal(t, tc.want, h)
+			assert.Equal(t, tc.err, err)
+		})
+	}
+}
 
 func TestHandleMobileConfigDot(t *testing.T) {
 	var err error
